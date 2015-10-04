@@ -1,5 +1,6 @@
 import sys
 import os
+import csv
 from binascii import b2a_hex
 
 
@@ -14,8 +15,10 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTChar
 
-def with_pdf (pdf_doc, fn, pdf_pwd, *args):
-    """Open the pdf document, and apply the function, returning the results"""
+outputCSVFile = "Final.txt"
+inputPdfFile = "xxxx"
+
+def openPdf (pdf_doc, fn, pwd, *args):
     result = None
     try:
         # open the pdf file
@@ -46,17 +49,14 @@ def with_pdf (pdf_doc, fn, pdf_pwd, *args):
 ###
 import re
 
-def to_bytestring (s, enc='utf-8'):
-    """Convert the given unicode string to a bytestring, using the standard encoding,
-    unless it's already a bytestring"""
+def convertString (s, enc='utf-8'):
     if s:
         if isinstance(s, str):
             return s
         else:
             return s.encode(enc)
 
-def update_page_text_hash (h, lt_obj, pct=0.2):
-    """Use the bbox x0,x1 values within pct% to produce lists of associated text within the hash"""
+def parsePdfText (h, lt_obj, pct=0.2):
 
     x0 = lt_obj.bbox[0]
     x1 = lt_obj.bbox[2]
@@ -70,32 +70,30 @@ def update_page_text_hash (h, lt_obj, pct=0.2):
                 # the text inside this LT* object was positioned at the same
                 # width as a prior series of text, so it belongs together
                 key_found = True
-		if not (to_bytestring(lt_obj.get_text())) == ' \n':# or not ((to_bytestring(lt_obj.get_text())) == '      \n'):
-			new_str = to_bytestring(lt_obj.get_text()).strip(' \n\t\r')
+		if not (convertString(lt_obj.get_text())) == ' \n':
+			new_str = convertString(lt_obj.get_text()).strip(' \n\t\r')
 			v.append(new_str)
 			h[k] = v
     if not key_found:
         # the text, based on width, is a new series,
         # so it gets its own series (entry in the hash)
-        h[(x0,x1)] = [to_bytestring(lt_obj.get_text())]
+        h[(x0,x1)] = [convertString(lt_obj.get_text())]
 
     return h
 
-import csv
 
-def parse_lt_objs (lt_objs, page_number, text=[]):
-    text_content = [] 
 
+def parsePdfObjects (lt_objs, page_number, text=[]):
     page_text = {} # k=(x0, x1) of the bbox, v=list of text strings within that bbox width (physical column)
     for lt_obj in lt_objs:
         if isinstance(lt_obj, LTTextBox) or isinstance(lt_obj, LTTextLine):
             # text, so arrange is logically based on its column width
-            page_text = update_page_text_hash(page_text, lt_obj)
+            page_text = parsePdfText(page_text, lt_obj)
 
 	#For Image/Picturs     
         #elif isinstance(lt_obj, LTImage):
     
-    of = open("Final.txt","w")
+    of = open(outputCSVFile,"w")
     ow = csv.writer(of,delimiter='#',lineterminator='\n\n')
     for k, v in sorted([(key,value) for (key,value) in page_text.items()]):
         # sort the page_text hash by the keys (x0,x1 values of the bbox),
@@ -114,26 +112,26 @@ def parse_lt_objs (lt_objs, page_number, text=[]):
 ### Processing Pages
 ###
 
-def _parse_pages (doc):
+def parsePdf (doc):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = PDFPageAggregator(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
 
-    #text_content = []
     for i, page in enumerate(PDFPage.create_pages(doc)):
 	    interpreter.process_page(page)
        	    # receive the LTPage object for this page
        	    layout = device.get_result()
        	    # layout is an LTPage object which may contain child objects like LTTextBox, LTFigure, LTImage, etc.
-	    parse_lt_objs(layout, (i+1))
+	    parsePdfObjects(layout, (i+1))
 
-def get_pages (pdf_doc, pdf_pwd=''):
-    return with_pdf(pdf_doc, _parse_pages, pdf_pwd)
+def main (pdf_doc, pwd=''):
+    return openPdf(pdf_doc, parsePdf, pwd)
 
 
 if __name__=="__main__":
-	if get_pages("xxxx")=="Error":
+	if main(inputPdfFile)=="Error":
 		print("Some Error in Opening File-Check File/File Location")
 	else:
 		print("Information Extracted")
+
