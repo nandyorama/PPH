@@ -1,8 +1,8 @@
-import sys
-import os
+#import sys
+#import os
 import csv
 import re
-from binascii import b2a_hex
+#from binascii import b2a_hex
 
 
 ###
@@ -20,7 +20,7 @@ outputCSVFile = "Final.txt"
 inputPdfFile = "xxxx"
 csvFileDelimiter = "#"
 
-def openPdf (pdf_doc, fn, pwd, *args):
+def openPdf (pdf_doc, fn, *args):
     result = None
     try:
         # open the pdf file
@@ -113,10 +113,10 @@ def getPdfInterpret():
     	laparams = LAParams()
     	device = PDFPageAggregator(rsrcmgr, laparams=laparams)
     	interptr = PDFPageInterpreter(rsrcmgr, device)
-	return interptr
+	return interptr,device
 
 def parsePdf (doc):
-	interptr = getPdfInterpret() 
+	interptr,device = getPdfInterpret() 
 	for i, page in enumerate(PDFPage.create_pages(doc)):
 		interptr.process_page(page)
        	    	# receive the LTPage object for this page
@@ -124,8 +124,8 @@ def parsePdf (doc):
        	    	# layout is an LTPage object which may contain child objects like LTTextBox, LTFigure, LTImage, etc.
 	    	parsePdfObjects(layout, (i+1))
 
-def main (pdf_doc, pwd=''):
-	return openPdf(pdf_doc, parsePdf, pwd)
+def main (pdf_doc):
+	return openPdf(pdf_doc, parsePdf)
 
 
 if __name__=="__main__":
